@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DeepSeek 对话搬运工</title>
+<style>
+:root{
+  --ink:#2f4763; --ink2:#5b7290; --ink3:#8aa0ba;
+  --milk:#f7fbff; --milk2:#e8f3ff; --blue:#6fa8e8; --blue2:#a8d4ff; --pink:#ffd6e6;
+  --glass:rgba(255,255,255,.58); --glass2:rgba(255,255,255,.40);
+  --edge:rgba(255,255,255,.95); --edge2:rgba(150,190,235,.45);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;color:var(--ink);font:15px/1.75 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  background:linear-gradient(180deg,#ffffff 0%,#f4faff 30%,#e6f3ff 62%,#d9ecff 100%);
+  overflow-x:hidden;
+}
+/* 仙气：柔和光团 */
+.blobs{position:fixed;inset:-25%;z-index:0;pointer-events:none;filter:blur(70px);opacity:.9}
+.blob{position:absolute;border-radius:50%;will-change:transform}
+.b1{width:54vw;height:54vw;left:-12vw;top:-14vw;
+  background:radial-gradient(circle at 40% 40%,rgba(168,212,255,.85),rgba(168,212,255,0) 68%);
+  animation:drift1 24s ease-in-out infinite}
+.b2{width:44vw;height:44vw;right:-10vw;top:2vh;
+  background:radial-gradient(circle at 55% 45%,rgba(255,214,230,.75),rgba(255,214,230,0) 68%);
+  animation:drift2 29s ease-in-out infinite}
+.b3{width:62vw;height:62vw;left:14vw;bottom:-34vw;
+  background:radial-gradient(circle at 50% 50%,rgba(214,206,255,.70),rgba(214,206,255,0) 70%);
+  animation:drift3 33s ease-in-out infinite}
+@keyframes drift1{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(5vw,4vh,0) scale(1.10)}}
+@keyframes drift2{0%,100%{transform:translate3d(0,0,0) scale(1.04)}50%{transform:translate3d(-6vw,7vh,0) scale(.94)}}
+@keyframes drift3{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(3vw,-5vh,0) scale(1.08)}}
+.veil{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,.06) 45%,rgba(214,236,255,.30))}
+
+.wrap{position:relative;z-index:2;max-width:940px;margin:0 auto;padding:28px 18px 110px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+h1{font-size:23px;margin:0;letter-spacing:.02em;font-weight:700;
+  background:linear-gradient(180deg,#4d7fb8,#8fc0ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ver{font-size:11px;color:#5d93c9;border:1px solid rgba(120,175,230,.45);border-radius:20px;padding:1px 9px;
+  letter-spacing:.08em;background:rgba(255,255,255,.6)}
+.sub{color:var(--ink2);font-size:13.5px;margin:0 0 22px;line-height:1.85}
+.sub b{color:var(--ink);font-weight:600}
+
+.steps{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 18px}
+.step{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink3);
+  border:1px solid rgba(255,255,255,.9);border-radius:12px;padding:7px 12px;
+  background:rgba(255,255,255,.5);backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);
+  box-shadow:0 4px 14px rgba(140,180,220,.14)}
+.step b{display:inline-flex;width:19px;height:19px;border-radius:50%;background:rgba(120,175,230,.22);
+  color:#3f79b0;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.step.on{color:var(--ink);border-color:rgba(140,195,250,.8);background:rgba(255,255,255,.78);
+  box-shadow:0 6px 20px rgba(110,170,230,.22)}
+.step.done{color:#3f8a62;border-color:rgba(140,205,170,.8);background:rgba(240,255,247,.75)}
+
+.drop{position:relative;border:1px solid rgba(255,255,255,.95);border-radius:20px;padding:44px 22px;text-align:center;
+  background:linear-gradient(160deg,rgba(255,255,255,.82),rgba(240,248,255,.55) 55%,rgba(226,241,255,.45));
+  backdrop-filter:blur(26px) saturate(170%);-webkit-backdrop-filter:blur(26px) saturate(170%);
+  box-shadow:0 20px 50px rgba(130,170,215,.22), inset 0 1px 0 rgba(255,255,255,1);
+  transition:.25s;cursor:pointer;overflow:hidden}
+.drop:after{content:"";position:absolute;left:-40%;top:-60%;width:80%;height:200%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);
+  transform:rotate(18deg);transition:.7s;pointer-events:none}
+.drop:hover{border-color:rgba(150,200,250,1);transform:translateY(-2px);
+  box-shadow:0 26px 60px rgba(120,165,215,.28)}
+.drop:hover:after{left:110%}
+.drop.over{border-color:#8cc4f5;box-shadow:0 0 0 2px rgba(140,195,250,.55),0 20px 50px rgba(110,170,230,.3)}
+.dicon{font-size:26px;margin-bottom:12px;color:#7fb3e0;opacity:.95}
+.drop .big{font-size:15.5px;color:var(--ink);font-weight:600}
+.drop .small{font-size:12.5px;color:var(--ink3);margin-top:8px}
+
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0}
+input[type=text]{flex:1;min-width:150px;height:46px;color:var(--ink);
+  border:1px solid rgba(255,255,255,.95);border-radius:14px;padding:0 15px;font:inherit;font-size:14px;
+  background:rgba(255,255,255,.62);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 6px 18px rgba(140,180,220,.14), inset 0 1px 0 rgba(255,255,255,1);transition:.2s}
+input[type=text]::placeholder{color:#a5b8cc}
+input[type=text]:focus{outline:none;border-color:#a8d4ff;background:rgba(255,255,255,.88);
+  box-shadow:0 0 0 4px rgba(168,212,255,.35)}
+select{height:42px;color:var(--ink);border:1px solid rgba(255,255,255,.95);border-radius:14px;padding:0 10px;
+  font:inherit;font-size:13.5px;background:rgba(255,255,255,.62);backdrop-filter:blur(16px)}
+button{min-height:46px;padding:0 17px;border-radius:15px;color:var(--ink);font:inherit;font-size:14px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.95);
+  background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(236,246,255,.72));
+  backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);
+  box-shadow:0 8px 22px rgba(140,180,220,.20), inset 0 1px 0 rgba(255,255,255,1);transition:.18s}
+button:hover{background:linear-gradient(180deg,#fff,rgba(226,241,255,.9));transform:translateY(-1px);
+  box-shadow:0 12px 28px rgba(130,175,220,.26)}
+button:active{transform:translateY(0) scale(.99)}
+button.primary{background:linear-gradient(180deg,#9dceff,#6aa9ea);border-color:#b9dcff;color:#fff;
+  text-shadow:0 1px 2px rgba(60,110,170,.35);
+  box-shadow:0 10px 26px rgba(110,170,235,.40), inset 0 1px 0 rgba(255,255,255,.75)}
+button.primary:hover{background:linear-gradient(180deg,#b0d8ff,#7ab6f2)}
+button.gold{background:linear-gradient(180deg,#fff0d0,#ffe0ae);border-color:#ffe9c6;color:#8a6a2f;
+  box-shadow:0 8px 22px rgba(220,180,110,.30), inset 0 1px 0 #fff}
+button.green{background:linear-gradient(180deg,#c8f2dc,#96e0bd);border-color:#d8f7e8;color:#25694a;
+  box-shadow:0 8px 22px rgba(110,200,160,.32), inset 0 1px 0 #fff}
+
+.list{border:1px solid rgba(255,255,255,.95);border-radius:18px;overflow:hidden;max-height:54vh;overflow-y:auto;
+  background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(238,247,255,.5));
+  backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);
+  box-shadow:0 18px 44px rgba(135,175,215,.20), inset 0 1px 0 rgba(255,255,255,1)}
+.item{display:flex;gap:13px;padding:14px 16px;border-bottom:1px solid rgba(170,205,240,.28);
+  cursor:pointer;position:relative;transition:.16s}
+.item:last-child{border-bottom:0}
+.item:hover{background:rgba(255,255,255,.6)}
+.item:has(input:checked){background:rgba(200,228,255,.55)}
+.item:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:.16s}
+.item:has(input:checked):before{background:linear-gradient(180deg,#9dceff,#6aa9ea);
+  box-shadow:0 0 14px rgba(120,180,240,.6)}
+.item input{margin-top:4px;width:17px;height:17px;accent-color:#6fa8e8;flex:0 0 auto}
+.item .t{font-size:14.5px;color:#2b4363;margin-bottom:4px;word-break:break-all;line-height:1.5;font-weight:600}
+.item .m{font-size:12px;color:#8aa0ba;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.item .snip{font-size:12.5px;color:#6d86a3;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:20px;
+  border:1px solid rgba(140,190,240,.5);color:#4d86c0;background:rgba(210,235,255,.7)}
+
+.stat{font-size:13px;color:var(--ink2);margin:12px 0 0;line-height:1.9}
+.stat b{color:#3f79b0;font-weight:700}
+.err{color:#d06a6a}
+.len{font-size:12.5px;color:var(--ink3);margin-left:auto}
+.len b{color:#3f79b0;font-weight:700}
+
+.actbar{position:sticky;bottom:0;margin-top:16px;padding:14px 0 calc(14px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,rgba(255,255,255,0),rgba(233,245,255,.75) 40%,rgba(222,240,255,.92));
+  display:flex;gap:10px;flex-wrap:wrap}
+
+details{margin-top:28px;border-top:1px solid rgba(170,205,240,.45);padding-top:14px}
+summary{cursor:pointer;color:#4d86c0;font-size:13.5px;outline:none}
+details ul{padding-left:20px;margin:10px 0 0}
+details li{font-size:13px;color:#5b7290;margin:6px 0;line-height:1.85}
+details li b{color:#2f4763;font-weight:600}
+
+/* Q 版署名 */
+.sig{position:fixed;right:14px;bottom:12px;z-index:3;pointer-events:none;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:0;padding:2px 11px 3px;border-radius:14px;
+  font-family:"Comic Sans MS","微软雅黑","Microsoft YaHei",cursive;
+  font-size:24px;font-weight:900;letter-spacing:.02em;transform:rotate(-5deg);
+  background:linear-gradient(180deg,#ffffff,#eaf5ff);
+  border:2px solid #ffffff;
+  box-shadow:0 6px 0 rgba(160,200,240,.35), 0 10px 24px rgba(120,170,225,.35), inset 0 1px 0 #fff;
+  color:#3f7fc4;
+  text-shadow:0 1px 0 #fff}
+.sig b{font-weight:900;color:#2f6fb8}
+.sig em{flex-basis:100%;text-align:right;font-style:normal;font-size:9.5px;line-height:1.25;letter-spacing:.03em;color:#7a9cc0;font-family:"微软雅黑","Microsoft YaHei",sans-serif;font-weight:400}
+.sig i{font-style:normal;font-size:14px;color:#ffb3d9;margin-right:-2px;
+  animation:twinkle 3.2s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+
+@media (max-width:560px){
+  .wrap{padding:20px 12px 100px}
+  h1{font-size:20px}
+  .drop{padding:30px 15px;border-radius:18px}
+  button{font-size:13px;padding:0 12px;min-height:44px}
+  .item{padding:12px 13px}
+  .list{max-height:46vh}
+  .sig{right:10px;bottom:8px;font-size:24px;padding:3px 11px 5px}
+}
+@media (prefers-reduced-motion:reduce){.blob{animation:none}}
+</style>
+</head>
+<body>
+<div class="blobs"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div><div class="veil"></div><div class="wrap">
+  <div class="brand">
+    <h1>对话搬运工</h1>
+    <span class="ver">DeepSeek 导出专用</span>
+  </div>
+  <p class="sub">把 DeepSeek 导出的对话包拖进来，就能看清每个对话是什么，挑好再搬去 Chatbox / Kelivo 接着聊。<br>全部在你自己的浏览器里跑，<b>不上传，断网也能用</b>。</p>
+
+  <div class="steps">
+    <div class="step on" id="st1"><b>1</b>拖进来</div>
+    <div class="step" id="st2"><b>2</b>挑对话</div>
+    <div class="step" id="st3"><b>3</b>导出</div>
+  </div>
+
+  <div class="drop" id="drop">
+    <div class="dicon"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#7fb3e0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8.5 7.5M12 4l3.5 3.5"/><path d="M4.5 15v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3"/></svg></div>
+    <div class="big">把 zip 或 json 拖到这里，或点击选择</div>
+    <div class="small">整个导出包也行，只丢一个对话也行，支持多选</div>
+    <input type="file" id="file" accept=".zip,.json" multiple style="display:none">
+  </div>
+
+  <div id="panel" style="display:none">
+    <div class="bar">
+      <input type="text" id="q" placeholder="搜索标题 / 内容关键词">
+      <button id="all">全选</button>
+      <button id="none">全不选</button>
+    </div>
+    <div class="list" id="list"></div>
+    <div class="stat" id="stat"></div>
+    <div class="bar" style="margin-top:4px">
+      <span style="font-size:13px;color:#5b7290">续接包带最近</span>
+      <select id="nlast" style="height:38px;background:rgba(255,255,255,.7);color:#2f4763;border:1px solid rgba(255,255,255,.95);border-radius:12px;padding:0 8px;font:inherit">
+        <option value="10">10 条</option>
+        <option value="20" selected>20 条</option>
+        <option value="40">40 条</option>
+        <option value="0">全部</option>
+      </select>
+      <label style="font-size:13px;color:#5b7290;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="sumz" checked style="width:16px;height:16px;accent-color:#6fa8e8"> 前面压缩成摘要
+      </label>
+      <label style="font-size:13px;color:#5b7290;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="incset" checked style="width:16px;height:16px;accent-color:#6fa8e8"> 带上人设
+      </label>
+      <select id="mode" style="height:38px">
+        <option value="auto" selected>自动判断</option>
+        <option value="role">角色扮演</option>
+        <option value="chat">普通聊天</option>
+      </select>
+      <span id="len" style="font-size:12.5px;color:#8aa0ba"></span>
+    </div>
+    <div class="bar actbar">
+      <button class="green" id="seed">拿去接着聊</button>
+      <button class="gold" id="md">存成 Markdown</button>
+      <button class="primary" id="json">存成 JSON</button>
+      <button id="card">人设卡</button>
+      <button id="csv">列个清单</button>
+    </div>
+  </div>
+
+  <details>
+    <summary>怎么用（点开）</summary>
+    <ul>
+      <li><b>拖进来：</b>DeepSeek 网页版导出会生成一个 zip，直接拖进来。图片多也没关系，只解析对话。</li>
+      <li><b>挑对话：</b>列表里写了标题、条数、时间和第一句话。认不出来就搜关键词。</li>
+      <li><b>导出：</b>「拿去接着聊」会生成一段话，粘给新的客户端就能续上，里面带了人设和最近的对话。</li>
+      <li><b>人设卡：</b>想让它一直记得这个角色，把卡片贴进客户端的系统提示词，以后新对话自动带上。</li>
+      <li><b>普通聊天：</b>如果本来就是在跟 DeepSeek 本体聊天，类型选「普通聊天」，不会加角色扮演的腔调。</li>
+      <li><b>隐私：</b>全部在本地浏览器里完成，不上传，断网也能用。</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var convs=[];
+
+/* ---------------- ZIP ---------------- */
+function u32(dv,o){return dv.getUint32(o,true)}
+function u16(dv,o){return dv.getUint16(o,true)}
+function readEntries(buf){
+  var dv=new DataView(buf), n=buf.byteLength, eocd=-1;
+  for(var i=n-22;i>=Math.max(0,n-66000);i--){ if(u32(dv,i)===0x06054b50){eocd=i;break;} }
+  if(eocd<0) throw new Error('这不是 zip 文件');
+  var cnt=u16(dv,eocd+10), off=u32(dv,eocd+16), out=[];
+  for(var k=0;k<cnt;k++){
+    if(u32(dv,off)!==0x02014b50) break;
+    var method=u16(dv,off+10), csize=u32(dv,off+20);
+    var nlen=u16(dv,off+28), elen=u16(dv,off+30), clen=u16(dv,off+32), lho=u32(dv,off+42);
+    var name=new TextDecoder('utf-8').decode(new Uint8Array(buf,off+46,nlen));
+    out.push({name:name,method:method,csize:csize,lho:lho});
+    off+=46+nlen+elen+clen;
+  }
+  return out;
+}
+async function readEntry(buf,e){
+  var dv=new DataView(buf), nlen=u16(dv,e.lho+26), elen=u16(dv,e.lho+28);
+  var start=e.lho+30+nlen+elen;
+  var raw=new Uint8Array(buf,start,e.csize);
+  if(e.method===0) return new TextDecoder('utf-8').decode(raw);
+  if(typeof DecompressionStream==='undefined') throw new Error('浏览器不支持解压，请用新版 Chrome/Edge');
+  var ds=new DecompressionStream('deflate-raw');
+  var ab=await new Response(new Blob([raw]).stream().pipeThrough(ds)).arrayBuffer();
+  return new TextDecoder('utf-8').decode(ab);
+}
+
+/* ---------------- 解析 ---------------- */
+function fmtTime(t){
+  if(!t) return '';
+  var d=new Date(t);
+  if(isNaN(d.getTime())) return String(t).slice(0,16);
+  var p=function(x){return (x<10?'0':'')+x};
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+function roleOf(r){
+  r=String(r||'').toLowerCase();
+  if(r==='user'||r==='human') return 'user';
+  if(r==='assistant'||r==='ai'||r==='bot') return 'assistant';
+  if(r==='system') return 'system';
+  return '';
+}
+
+/* DeepSeek 官方导出格式 */
+function parseDeepSeek(obj,fileName){
+  if(!obj || !Array.isArray(obj.messages)) return null;
+  var msgs=[], files=[];
+  obj.messages.forEach(function(m){
+    var role=roleOf(m.role);
+    var parts=[];
+    (m.fragments||[]).forEach(function(f){
+      var t=(f.type||'').toUpperCase();
+      if(t==='FILE'){
+        (f.files||[]).forEach(function(x){
+          files.push({name:x.file_name||'附件',img:!!x.is_image});
+          parts.push('〔附件：'+(x.file_name||'文件')+'〕');
+        });
+        return;
+      }
+      if(t==='THINK') return;                    // 丢弃思考过程
+      if(typeof f.content==='string' && f.content.trim()) parts.push(f.content.trim());
+    });
+    var text=parts.join('\n').trim();
+    if(!text) return;
+    if(!role) role = (msgs.length%2?'assistant':'user');
+    msgs.push({role:role,content:text});
+  });
+  if(!msgs.length) return null;
+  var first='';
+  for(var i=0;i<msgs.length;i++){ if(msgs[i].role==='user'){ first=msgs[i].content; break; } }
+  if(!first) first=msgs[0].content;
+  return {
+    title:(obj.title||fileName||'未命名').trim(),
+    time:fmtTime(obj.updated_at||obj.inserted_at),
+    msgs:msgs,
+    files:files,
+    id:obj.id||'',
+    file:fileName||''
+  };
+}
+
+/* 通用兜底（别的导出工具/格式） */
+function pick(o,ks){ for(var i=0;i<ks.length;i++){ if(o&&o[ks[i]]!=null) return o[ks[i]]; } return null; }
+function textOf(c){
+  if(typeof c==='string') return c;
+  if(Array.isArray(c)) return c.map(function(x){return (x&&(x.text||x.content||x.value))||''}).join('');
+  if(c&&typeof c==='object') return c.text||c.content||c.value||'';
+  return '';
+}
+function msgsOf(node){
+  var a=pick(node,['messages','chat_messages','contents','items','history','turns']);
+  if(Array.isArray(a)) return a;
+  var map=pick(node,['mapping','message_map']);
+  if(map&&typeof map==='object'){
+    var l=Object.keys(map).map(function(k){return map[k]}).filter(Boolean);
+    l.sort(function(x,y){return (x.create_time||0)-(y.create_time||0)});
+    return l.map(function(x){return x.message||x});
+  }
+  return null;
+}
+function parseGeneric(obj,fileName){
+  var found=[];
+  (function walk(node,depth){
+    if(!node||typeof node!=='object'||depth>4) return;
+    if(Array.isArray(node)){ node.forEach(function(x){ if(x&&typeof x==='object'&&msgsOf(x)) found.push(x) }); return; }
+    if(msgsOf(node)){ found.push(node); return; }
+    for(var k in node){ if(Object.prototype.hasOwnProperty.call(node,k)&&node[k]&&typeof node[k]==='object') walk(node[k],depth+1) }
+  })(obj,0);
+  return found.map(function(node){
+    var raw=msgsOf(node)||[];
+    var msgs=[];
+    raw.forEach(function(m,i){
+      var role=roleOf(m.role||m.author||m.sender);
+      var c=textOf(m.content!==undefined?m.content:m.text);
+      if(!c||!c.trim()) return;
+      if(!role) role=(msgs.length%2?'assistant':'user');
+      msgs.push({role:role,content:c.trim()});
+    });
+    if(!msgs.length) return null;
+    return {
+      title:(pick(node,['title','custom_title','name','topic'])||fileName||'未命名').trim(),
+      time:fmtTime(pick(node,['updated_at','updated_time','inserted_at','created_at','create_time'])),
+      msgs:msgs, files:[], id:'', file:fileName||''
+    };
+  }).filter(Boolean);
+}
+
+function addConv(c){
+  if(!c||!c.msgs.length) return;
+  var key=(c.id||c.file)+'|'+c.msgs.length+'|'+(c.msgs[0]?c.msgs[0].content.slice(0,20):'');
+  for(var i=0;i<convs.length;i++){ if(convs[i]._key===key) return; }
+  c._key=key;
+  c.snip=(function(){ for(var j=0;j<c.msgs.length;j++){ var t2=c.msgs[j].content.replace(/〔附件：[^〕]*〕/g,'').replace(/[#>*`|]/g,' ').replace(/\s+/g,' ').trim(); if(t2) return t2.slice(0,90); } return ''; })();
+  convs.push(c);
+}
+
+async function ingestJsonText(txt,fileName){
+  var obj;
+  try{ obj=JSON.parse(txt); }catch(e){ return false; }
+  var d=parseDeepSeek(obj,fileName);
+  if(d){ addConv(d); return true; }
+  var g=parseGeneric(obj,fileName);
+  g.forEach(addConv);
+  return g.length>0;
+}
+
+async function ingestFile(file){
+  var name=file.name;
+  if(/\.zip$/i.test(name)){
+    var buf=await file.arrayBuffer();
+    var entries=readEntries(buf);
+    var jsons=entries.filter(function(e){ return /\.json$/i.test(e.name) && !/user\.json$/i.test(e.name); });
+    var imgs=entries.filter(function(e){ return /\.(png|jpe?g|webp|gif)$/i.test(e.name); });
+    for(var i=0;i<jsons.length;i++){
+      var t;
+      try{ t=await readEntry(buf,jsons[i]); }catch(e){ continue; }
+      await ingestJsonText(t,jsons[i].name);
+    }
+    return {imgs:imgs.length, files:jsons.length};
+  }
+  if(/\.json$/i.test(name)){
+    var txt=await file.text();
+    await ingestJsonText(txt,name);
+    return {imgs:0, files:1};
+  }
+  return {imgs:0, files:0};
+}
+
+async function handleFiles(list){
+  var info={imgs:0, files:0};
+  for(var i=0;i<list.length;i++){
+    try{
+      var r=await ingestFile(list[i]);
+      info.imgs+=r.imgs; info.files+=r.files;
+    }catch(e){ /* 单个文件失败不影响其他 */ }
+  }
+  $('#panel').style.display='block';
+  if(!convs.length){
+    $('#stat').innerHTML='<span class="err">没认出对话，确认一下是不是 DeepSeek 导出的 zip</span>';
+    return;
+  }
+  render(); updateSteps();
+  $('#stat').innerHTML='找到 <b>'+convs.length+'</b> 个对话'+
+    (info.imgs?'　图片 '+info.imgs+' 张（图片单独存放，暂不嵌入）':'')+
+    '<br><span style="font-size:12px">勾选后导出。列表里的「首句」是第一条你说的话，用来认对话。</span>';
+}
+
+/* ---------------- 界面 ---------------- */
+function render(){
+  var q=($('#q').value||'').trim().toLowerCase();
+  var box=$('#list'); box.innerHTML='';
+  var n=0;
+  convs.forEach(function(c,i){
+    if(q && (c.title+' '+c.snip).toLowerCase().indexOf(q)<0) return;
+    n++;
+    var d=document.createElement('label');
+    d.className='item';
+    var att=(c.files&&c.files.length)?'　附件 '+c.files.length:'';
+    d.innerHTML='<input type="checkbox" data-i="'+i+'">'+
+      '<div style="flex:1;min-width:0">'+
+        '<div class="t">'+esc(c.title)+'</div>'+
+        '<div class="m"><span class="tag">'+c.msgs.length+' 条</span>'+esc(c.time||'')+esc(att)+'</div>'+
+        '<div class="snip">'+esc(c.snip)+'</div>'+
+      '</div>';
+    box.appendChild(d);
+  });
+  if(!n) box.innerHTML='<div style="padding:18px;color:#8b93a1">没有匹配的对话</div>';
+}
+function esc(s){ return String(s||'').replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c]}); }
+function selected(){
+  var out=[];
+  document.querySelectorAll('#list input:checked').forEach(function(x){ out.push(convs[+x.dataset.i]) });
+  return out;
+}
+function toMd(c){
+  var s='# '+c.title+'\n\n'+(c.time?'*'+c.time+'*\n\n':'');
+  c.msgs.forEach(function(m){
+    s += (m.role==='assistant'?'**DeepSeek**':'**你**')+'\n\n'+m.content+'\n\n---\n\n';
+  });
+  return s.trim();
+}
+function opts(){
+  var el=$('#nlast'), n=el?parseInt(el.value,10):20;
+  if(isNaN(n)) n=20;
+  return {n:n, sumz:!!($('#sumz')&&$('#sumz').checked)};
+}
+function windowMsgs(c,o){
+  if(!o.n || o.n>=c.msgs.length) return {head:[], tail:c.msgs};
+  return {head:c.msgs.slice(0,c.msgs.length-o.n), tail:c.msgs.slice(c.msgs.length-o.n)};
+}
+function clean(t){
+  return t.replace(/〔附件：[^〕]*〕/g,'').replace(/[#>*`|]/g,' ').replace(/\s+/g,' ').trim();
+}
+function summarize(head){
+  if(!head.length) return '';
+  var setting='';
+  for(var i=0;i<head.length;i++){ if(head[i].role==='user'){ setting=clean(head[i].content); break; } }
+  var s='【前情提要】\n';
+  if(setting) s+=setting.slice(0,900)+'\n\n';
+  s+='【之后发生过的片段（节选）】\n';
+  var cnt=0;
+  for(var j=0;j<head.length;j++){
+    var t=clean(head[j].content);
+    if(!t || t===setting) continue;
+    s+='· '+t.slice(0,50)+'\n';
+    if(++cnt>=18) break;
+  }
+  return s.trim();
+}
+function isRole(c){
+  var el=$('#mode'), mode=el?el.value:'auto';
+  if(mode==='role') return true;
+  if(mode==='chat') return false;
+  var first='';
+  for(var i=0;i<c.msgs.length;i++){ if(c.msgs[i].role==='user'){ first=clean(c.msgs[i].content); break; } }
+  if(first.length>=150) return true;
+  if(/你叫|你是|你的名字|设定|角色|扮演|人设|性格|说话方式|称呼/.test(first)) return true;
+  if(/〔附件：/.test(c.msgs.map(function(m){return m.content}).join(''))) return true;
+  var joined=c.msgs.filter(function(m){return m.role==='assistant'}).map(function(m){return m.content}).join('\n');
+  if(/###|◆|｜|\|/.test(joined)) return true;
+  return false;
+}
+function personaOf(c){
+  for(var i=0;i<c.msgs.length;i++){
+    if(c.msgs[i].role==='user'){
+      var t=c.msgs[i].content.replace(/〔附件：[^〕]*〕/g,'').trim();
+      if(t.length>=80) return t;
+    }
+  }
+  return '';
+}
+function pretty(t){
+  return t.replace(/〔附件：([^〕]*)〕/g,'（我发了一个文件：$1）');
+}
+function toSeed(c){
+  var o=opts(), w=windowMsgs(c,o);
+  var role=isRole(c);
+  var inc=!($('#incset')&&!$('#incset').checked);
+  var L=[];
+  if(role){
+    L.push('我们接着往下演吧。');
+    L.push('');
+    var p=inc?personaOf(c):'';
+    if(p){
+      L.push('先把人设贴给你，这是我们之前定好的，你要一直记得：');
+      L.push('');
+      L.push(p);
+      L.push('');
+    }else{
+      L.push('（人设就是之前那个角色，说话方式、称呼、脾气都照着来，不要跳戏。）');
+      L.push('');
+    }
+    if(w.head.length){
+      L.push('前面聊过的大概是这些：');
+      L.push('');
+      L.push(o.sumz?summarize(w.head):w.head.map(function(m){return (m.role==='assistant'?'你：':'我：')+pretty(m.content)}).join('\n\n'));
+      L.push('');
+    }
+    L.push('我们最近说到这儿：');
+    L.push('');
+    L.push(w.tail.map(function(m){return (m.role==='assistant'?'你：':'我：')+pretty(m.content)}).join('\n\n'));
+    L.push('');
+    L.push('上面都是我搬过来的旧内容，你不用重新回答，直接顺着往下接就好。准备好了就用角色的语气说句话，我们继续。');
+  }else{
+    L.push('我们接着之前聊的往下说。');
+    L.push('');
+    if(w.head.length){
+      L.push('前面大概聊了这些：');
+      L.push('');
+      L.push(o.sumz?summarize(w.head):w.head.map(function(m){return (m.role==='assistant'?'你：':'我：')+pretty(m.content)}).join('\n\n'));
+      L.push('');
+    }
+    L.push('最近说到这儿：');
+    L.push('');
+    L.push(w.tail.map(function(m){return (m.role==='assistant'?'你：':'我：')+pretty(m.content)}).join('\n\n'));
+    L.push('');
+    L.push('上面是之前的内容，不用重新回答，接着往下聊就行。');
+  }
+  return L.join('\n');
+}
+function toCard(c){
+  var p=personaOf(c);
+  var L=[];
+  L.push('【人设卡 · 复制到客户端的「系统提示词 / 角色设定」里】');
+  L.push('');
+  L.push('（这是最开始定的人设，可以直接用，也可以再改。）');
+  L.push('');
+  L.push('----------');
+  L.push(p || '（把你的人设写在这里：名字、身份、性格、说话方式、怎么称呼我、有哪些禁忌）');
+  L.push('----------');
+  L.push('');
+  L.push('另外要一直记住：');
+  L.push('· 保持上面这个人设，说话方式、称呼、脾气都别变');
+  L.push('· 不要用"作为一个AI"这种腔调，也不要写成说明文');
+  L.push('· 拿不准的地方，按这个人设的性格去推，不要自己乱编');
+  return L.join('\n');
+}function updateSteps(){
+  var a=convs.length>0, b=document.querySelectorAll('#list input:checked').length>0;
+  var s1=$('#st1'), s2=$('#st2'), s3=$('#st3');
+  if(!s1) return;
+  [s1,s2,s3].forEach(function(x){x.classList.remove('on','done')});
+  if(!a){ s1.classList.add('on'); return; }
+  s1.classList.add('done');
+  if(!b){ s2.classList.add('on'); return; }
+  s2.classList.add('done'); s3.classList.add('on');
+}
+function updateLen(){
+  var s=selected(), el=$('#len');
+  if(!el) return;
+  if(!s.length){ el.textContent=''; return; }
+  var chars=0;
+  s.forEach(function(c){ chars+=toSeed(c).length; });
+  el.innerHTML='约 <b style="color:#c8a468;font-weight:400">'+chars+'</b> 字 · 估算 '+
+    Math.round(chars/1.6)+' tokens';
+}
+function toJson(list){
+  if(list.length===1){
+    return JSON.stringify({title:list[0].title,format:'openai-chat',messages:list[0].msgs},null,2);
+  }
+  return JSON.stringify({
+    format:'openai-chat',
+    conversations:list.map(function(c){ return {title:c.title,time:c.time,messages:c.msgs} })
+  },null,2);
+}
+function dl(name,content,type){
+  var b=new Blob([content],{type:type||'text/plain;charset=utf-8'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},400);
+}
+function need(){
+  var s=selected();
+  if(!s.length){ alert('先选一个对话'); return null; }
+  return s;
+}
+
+/* ---------------- 事件 ---------------- */
+$('#drop').onclick=function(){ $('#file').click() };
+$('#file').onchange=function(e){ handleFiles(Array.prototype.slice.call(e.target.files)) };
+['dragenter','dragover'].forEach(function(ev){ $('#drop').addEventListener(ev,function(e){e.preventDefault();$('#drop').classList.add('over')}) });
+['dragleave','drop'].forEach(function(ev){ $('#drop').addEventListener(ev,function(e){e.preventDefault();$('#drop').classList.remove('over')}) });
+$('#drop').addEventListener('drop',function(e){ handleFiles(Array.prototype.slice.call(e.dataTransfer.files)) });
+$('#q').oninput=render;
+$('#list').addEventListener('change',function(){updateLen();updateSteps();});
+$('#all').onclick=function(){ document.querySelectorAll('#list input').forEach(function(x){x.checked=true}) };
+$('#none').onclick=function(){ document.querySelectorAll('#list input').forEach(function(x){x.checked=false}) };
+$('#seed').onclick=function(){ var s=need(); if(s) dl('续接包.txt', s.map(toSeed).join('\n\n\n'),'text/plain'); };
+$('#card').onclick=function(){ var s=need(); if(s) dl('角色卡.txt', s.map(toCard).join('\n\n\n'),'text/plain'); };
+$('#nlast').onchange=updateLen;
+$('#sumz').onchange=updateLen;
+$('#md').onclick=function(){ var s=need(); if(s) dl('对话导出.md', s.map(toMd).join('\n\n\n'),'text/markdown'); };
+$('#json').onclick=function(){ var s=need(); if(s) dl('对话导出.json', toJson(s),'application/json'); };
+$('#csv').onclick=function(){
+  var s=need(); if(!s) return;
+  var rows=[['标题','条数','时间','首句','附件','来源']];
+  s.forEach(function(c){
+    rows.push([c.title,c.msgs.length,c.time,c.snip,(c.files||[]).map(function(f){return f.name}).join(' / '),c.file]);
+  });
+  var csv=rows.map(function(r){return r.map(function(x){return '"'+String(x).replace(/"/g,'""')+'"'}).join(',')}).join('\n');
+  dl('对话清单.csv','\ufeff'+csv,'text/csv');
+};
+window.__ingest=ingestJsonText;
+window.__seed=toSeed;window.__card=toCard;window.__role=isRole;
+window.__convs=function(){return convs};
+})();
+</script>
+<div class="sig"><i>✧</i><span>dy@<b>雪霁</b></span><em>抖音 49027325104</em></div>
+</body>
+</html>
+D
