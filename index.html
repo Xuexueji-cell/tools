@@ -205,6 +205,10 @@ details li b{color:#2f4763;font-weight:600}
       <label style="font-size:13px;color:#5b7290;display:flex;align-items:center;gap:6px">
         <input type="checkbox" id="incset" checked style="width:16px;height:16px;accent-color:#6fa8e8"> 带上人设
       </label>
+      <select id="fmt" style="height:38px">
+        <option value="blocks" selected>分段格式</option>
+        <option value="natural">自然口语</option>
+      </select>
       <select id="mode" style="height:38px">
         <option value="auto" selected>自动判断</option>
         <option value="role">角色扮演</option>
@@ -516,53 +520,64 @@ function personaOf(c){
 function pretty(t){
   return t.replace(/〔附件：([^〕]*)〕/g,'（我发了一个文件：$1）');
 }
+function lineOf(m){ return (m.role==='assistant'?'你：':'我：')+pretty(m.content); }
 function toSeed(c){
-  var o=opts(), w=windowMsgs(c,o);
-  var role=isRole(c);
+  var o=opts(), w=windowMsgs(c,o), role=isRole(c);
   var inc=!($('#incset')&&!$('#incset').checked);
+  var fmt=($('#fmt')&&$('#fmt').value)||'blocks';
+  var p=role&&inc?personaOf(c):'';
+  var headTxt=w.head.length ? (o.sumz?summarize(w.head):w.head.map(lineOf).join('\n\n')) : '';
+  var tailTxt=w.tail.map(lineOf).join('\n\n');
   var L=[];
+
+  if(fmt==='blocks'){
+    if(role){
+      L.push('以下是我和 DeepSeek 之前的对话记录。请读完，然后以其中「DeepSeek」的身份、保持同样的语气和设定，接着往下聊。');
+      L.push('');
+      L.push('===== 角色设定 =====');
+      L.push(p || '（保持之前那个角色的语气、称呼和脾气，不要跳戏，也不要用"作为一个AI"的腔调。）');
+      L.push('');
+    }else{
+      L.push('以下是我和 DeepSeek 之前的对话。请读完，接着往下聊。');
+      L.push('');
+    }
+    if(headTxt){ L.push('===== 较早的对话 ====='); L.push(headTxt); L.push(''); }
+    L.push('===== 最近的对话 =====');
+    L.push(tailTxt);
+    L.push('');
+    L.push('===== 对话结束 =====');
+    L.push('');
+    L.push('请确认你已理解上下文，然后等我说话。');
+    return L.join('\n');
+  }
+
   if(role){
     L.push('我们接着往下演吧。');
     L.push('');
-    var p=inc?personaOf(c):'';
-    if(p){
+    if(inc){
       L.push('先把人设贴给你，这是我们之前定好的，你要一直记得：');
       L.push('');
-      L.push(p);
-      L.push('');
-    }else{
-      L.push('（人设就是之前那个角色，说话方式、称呼、脾气都照着来，不要跳戏。）');
+      L.push(p || '（人设就是之前那个角色，说话方式、称呼、脾气都照着来，不要跳戏。）');
       L.push('');
     }
-    if(w.head.length){
-      L.push('前面聊过的大概是这些：');
-      L.push('');
-      L.push(o.sumz?summarize(w.head):w.head.map(function(m){return (m.role==='assistant'?'你：':'我：')+pretty(m.content)}).join('\n\n'));
-      L.push('');
-    }
+    if(headTxt){ L.push('前面聊过的大概是这些：'); L.push(''); L.push(headTxt); L.push(''); }
     L.push('我们最近说到这儿：');
     L.push('');
-    L.push(w.tail.map(function(m){return (m.role==='assistant'?'你：':'我：')+pretty(m.content)}).join('\n\n'));
+    L.push(tailTxt);
     L.push('');
     L.push('上面都是我搬过来的旧内容，你不用重新回答，直接顺着往下接就好。准备好了就用角色的语气说句话，我们继续。');
   }else{
     L.push('我们接着之前聊的往下说。');
     L.push('');
-    if(w.head.length){
-      L.push('前面大概聊了这些：');
-      L.push('');
-      L.push(o.sumz?summarize(w.head):w.head.map(function(m){return (m.role==='assistant'?'你：':'我：')+pretty(m.content)}).join('\n\n'));
-      L.push('');
-    }
+    if(headTxt){ L.push('前面大概聊了这些：'); L.push(''); L.push(headTxt); L.push(''); }
     L.push('最近说到这儿：');
     L.push('');
-    L.push(w.tail.map(function(m){return (m.role==='assistant'?'你：':'我：')+pretty(m.content)}).join('\n\n'));
+    L.push(tailTxt);
     L.push('');
     L.push('上面是之前的内容，不用重新回答，接着往下聊就行。');
   }
   return L.join('\n');
-}
-function toCard(c){
+}function toCard(c){
   var p=personaOf(c);
   var L=[];
   L.push('【人设卡 · 复制到客户端的「系统提示词 / 角色设定」里】');
@@ -651,4 +666,3 @@ window.__convs=function(){return convs};
 <div class="sig"><i>✧</i><span>dy@<b>雪霁</b></span><em>抖音 49027325104</em></div>
 </body>
 </html>
-D
