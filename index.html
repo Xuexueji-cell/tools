@@ -103,17 +103,18 @@ details ol{padding-left:20px;margin:12px 0 0}
 details li{font-size:13px;color:#58718b;margin:9px 0;line-height:1.85}
 details li b{color:#2f4763;font-weight:600}
 
-.sig{position:fixed;right:14px;bottom:12px;z-index:3;pointer-events:none;display:inline-flex;flex-direction:column;
-  align-items:flex-end;width:fit-content;padding:3px 10px 4px;border-radius:12px;
+.sig{position:fixed;right:16px;bottom:26vh;z-index:3;pointer-events:auto;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;display:inline-flex;flex-direction:column;
+  align-items:flex-end;width:fit-content;padding:4px 13px 5px;border-radius:14px;
   font-family:"Comic Sans MS","微软雅黑","Microsoft YaHei",cursive;
-  font-size:21px;font-weight:900;line-height:1.15;transform:rotate(-5deg);
+  font-size:27px;font-weight:900;line-height:1.15;transform:rotate(-5deg);
   background:linear-gradient(180deg,#ffffff,#eaf5ff);border:2px solid #fff;
   box-shadow:0 4px 0 rgba(160,200,240,.30), 0 8px 18px rgba(120,170,225,.30), inset 0 1px 0 #fff;
   color:#3f7fc4;text-shadow:0 1px 0 #fff;white-space:nowrap}
 .sig b{font-weight:900;color:#2f6fb8}
-.sig em{font-style:normal;font-size:9px;line-height:1.4;letter-spacing:.02em;color:#7a9cc0;
+.sig em{font-style:normal;font-size:10.5px;line-height:1.4;letter-spacing:.02em;color:#7a9cc0;
   font-family:"微软雅黑","Microsoft YaHei",sans-serif;font-weight:400}
-.sig i{font-style:normal;font-size:13px;color:#ffb3d9;animation:twinkle 3.2s ease-in-out infinite}
+.sig.drag{cursor:grabbing;transform:rotate(-3deg) scale(1.04)}
+.sig i{font-style:normal;font-size:16px;color:#ffb3d9;animation:twinkle 3.2s ease-in-out infinite}
 @keyframes twinkle{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
 .sig .n{display:flex;align-items:center;gap:1px}
 
@@ -123,7 +124,7 @@ details li b{color:#2f4763;font-weight:600}
   .drop{padding:28px 14px}
   button{font-size:13px;padding:0 12px}
   .list{max-height:42vh}
-  .sig{right:10px;bottom:8px;font-size:18px}
+  .sig{right:12px;bottom:32vh;font-size:23px;padding:3px 11px 4px}
 }
 /* 雪 */
 .snow{position:fixed;inset:0;z-index:1;pointer-events:none;overflow:hidden}
@@ -638,7 +639,53 @@ document.getElementById('dlMd').onclick=function(){
   var s=selected(); if(!s.length){ alert('先选一个对话'); return; }
   dl('对话导出.md', s.map(toMarkdown).join('\n\n\n'), 'text/markdown');
 };
-window.__ingest=ingestJsonText;
+
+/* ---------- 可拖动的水印 ---------- */
+(function dragSig(){
+  var sig=document.querySelector('.sig');
+  if(!sig) return;
+  var KEY='dsh_sigpos';
+  function place(x,y){
+    var w=sig.offsetWidth, h=sig.offsetHeight;
+    x=Math.max(6,Math.min(window.innerWidth-w-6,x));
+    y=Math.max(6,Math.min(window.innerHeight-h-6,y));
+    sig.style.left=x+'px'; sig.style.top=y+'px';
+    sig.style.right='auto'; sig.style.bottom='auto';
+    return {x:x,y:y};
+  }
+  try{
+    var saved=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(saved) place(saved.x,saved.y);
+  }catch(e){}
+
+  var dragging=false, ox=0, oy=0;
+  sig.addEventListener('pointerdown',function(e){
+    dragging=true;
+    sig.classList.add('drag');
+    var r=sig.getBoundingClientRect();
+    ox=e.clientX-r.left; oy=e.clientY-r.top;
+    sig.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  sig.addEventListener('pointermove',function(e){
+    if(!dragging) return;
+    place(e.clientX-ox, e.clientY-oy);
+  });
+  function end(e){
+    if(!dragging) return;
+    dragging=false;
+    sig.classList.remove('drag');
+    var r=sig.getBoundingClientRect();
+    try{ localStorage.setItem(KEY, JSON.stringify({x:r.left,y:r.top})); }catch(err){}
+  }
+  sig.addEventListener('pointerup',end);
+  sig.addEventListener('pointercancel',end);
+  window.addEventListener('resize',function(){
+    var r=sig.getBoundingClientRect();
+    place(r.left,r.top);
+  });
+  sig.title='按住可以拖动我';
+})();window.__ingest=ingestJsonText;
 window.__convs=function(){return convs};
 window.__seed=buildSeed;
 window.__role=isRole;
